@@ -161,41 +161,88 @@ It was constructed with `proof-defstringset-fn'.")
       :active coq-compile-before-require
       :help ,(concat "Compile parallel in background or "
 		    "sequentially with blocking ProofGeneral.")]
-     ["no quick"
-      (customize-set-variable 'coq-compile-quick 'no-quick)
-      :style radio
-      :selected (eq coq-compile-quick 'no-quick)
+     ["Keep going"
+      coq-compile-keep-going-toggle
+      :style toggle
+      :selected coq-compile-keep-going
       :active (and coq-compile-before-require
 		   coq-compile-parallel-in-background)
-      :help "Compile without -quick but accept existion .vio's"]
-     ["quick no vio2vo"
-      (customize-set-variable 'coq-compile-quick 'quick-no-vio2vo)
-      :style radio
-      :selected (eq coq-compile-quick 'quick-no-vio2vo)
-      :active (and coq-compile-before-require
-		   coq-compile-parallel-in-background)
-      :help "Compile with -quick, accept existing .vo's, don't run vio2vo"]
-     ["quick and vio2vo"
-      (customize-set-variable 'coq-compile-quick 'quick-and-vio2vo)
-      :style radio
-      :selected (eq coq-compile-quick 'quick-and-vio2vo)
-      :active (and coq-compile-before-require
-		   coq-compile-parallel-in-background)
-      :help "Compile with -quick, accept existing .vo's, run vio2vo later"]
-     ["ensure vo"
-      (customize-set-variable 'coq-compile-quick 'ensure-vo)
-      :style radio
-      :selected (eq coq-compile-quick 'ensure-vo)
-      :active (and coq-compile-before-require
-		   coq-compile-parallel-in-background)
-      :help "Ensure only vo's are used for consistency"]
+      :help ,(concat "Continue background compilation after "
+		     "the first error as far as possible")]
+     ("Quick compilation"
+      ["no quick"
+       (customize-set-variable 'coq-compile-quick 'no-quick)
+       :style radio
+       :selected (eq coq-compile-quick 'no-quick)
+       :active (and coq-compile-before-require
+		    coq-compile-parallel-in-background)
+       :help "Compile without -quick but accept existion .vio's"]
+      ["quick no vio2vo"
+       (customize-set-variable 'coq-compile-quick 'quick-no-vio2vo)
+       :style radio
+       :selected (eq coq-compile-quick 'quick-no-vio2vo)
+       :active (and coq-compile-before-require
+		    coq-compile-parallel-in-background)
+       :help "Compile with -quick, accept existing .vo's, don't run vio2vo"]
+      ["quick and vio2vo"
+       (customize-set-variable 'coq-compile-quick 'quick-and-vio2vo)
+       :style radio
+       :selected (eq coq-compile-quick 'quick-and-vio2vo)
+       :active (and coq-compile-before-require
+		    coq-compile-parallel-in-background)
+       :help "Compile with -quick, accept existing .vo's, run vio2vo later"]
+      ["ensure vo"
+       (customize-set-variable 'coq-compile-quick 'ensure-vo)
+       :style radio
+       :selected (eq coq-compile-quick 'ensure-vo)
+       :active (and coq-compile-before-require
+		    coq-compile-parallel-in-background)
+       :help "Ensure only vo's are used for consistency"]
+      )
+     ("Auto Save"
+      ["Query coq buffers"
+       (customize-set-variable 'coq-compile-auto-save 'ask-coq)
+       :style radio
+       :selected (eq coq-compile-auto-save 'ask-coq)
+       :active coq-compile-before-require
+       :help "Ask for each coq-mode buffer, except the current buffer"]
+      ["Query all buffers"
+       (customize-set-variable 'coq-compile-auto-save 'ask-all)
+       :style radio
+       :selected (eq coq-compile-auto-save 'ask-all)
+       :active coq-compile-before-require
+       :help "Ask for all buffers"]
+      ["Autosave coq buffers"
+       (customize-set-variable 'coq-compile-auto-save 'save-coq)
+       :style radio
+       :selected (eq coq-compile-auto-save 'save-coq)
+       :active coq-compile-before-require
+       :help "Save all Coq buffers without confirmation, except the current one"]
+      ["Autosave all buffers"
+       (customize-set-variable 'coq-compile-auto-save 'save-all)
+       :style radio
+       :selected (eq coq-compile-auto-save 'save-all)
+       :active coq-compile-before-require
+       :help "Save all buffers without confirmation"]
+      )
+     ["Lock Ancesotors"
+      coq-lock-ancestors-toggle
+      :style toggle
+      :selected coq-lock-ancestors
+      :active coq-compile-before-require
+      :help "Lock files of imported modules"]
      ["Confirm External Compilation"
       coq-confirm-external-compilation-toggle
       :style toggle
       :selected coq-confirm-external-compilation
       :active (and coq-compile-before-require
 		   (not (equal coq-compile-command "")))
-      :help "Confirm external compilation command, see `coq-compile-command'."])
+      :help "Confirm external compilation command, see `coq-compile-command'."]
+     ["Abort Background Compilation"
+      coq-par-emergency-cleanup
+      :active (and coq-compile-before-require
+		   coq-compile-parallel-in-background)
+      :help "Abort background compilation and kill all compilation processes."])
     ""
     ["Print..." coq-Print :help "With prefix arg (C-u): Set Printing All first"]
     ["Check..." coq-Check :help "With prefix arg (C-u): Set Printing All first"]
@@ -244,6 +291,8 @@ It was constructed with `proof-defstringset-fn'.")
      ["Unset Printing Coercions" coq-unset-printing-coercions t]
      ["Set Printing Synth" coq-set-printing-synth t]
      ["Unset Printing Synth" coq-unset-printing-synth t]
+     ["Set Printing Universes" coq-set-printing-universes t]
+     ["Unset Printing Universes" coq-unset-printing-universes t]
      ["Set Printing Wildcards" coq-set-printing-wildcards t]
      ["Unset Printing Wildcards" coq-unset-printing-wildcards t]
      ["Set Printing Width" coq-ask-adapt-printing-width-and-show t])

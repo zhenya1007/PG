@@ -30,7 +30,8 @@ On Windows you might need something like:
   :group 'coq)
 
 (defcustom coq-prog-name
-  (proof-locate-executable "coqtop" t '("C:/Program Files/Coq/bin"))
+  (if (executable-find "coqtop") "coqtop"
+    (proof-locate-executable "coqtop" t '("C:/Program Files/Coq/bin")))
   "*Name of program to run as Coq. See `proof-prog-name', set from this.
 On Windows with latest Coq package you might need something like:
    C:/Program Files/Coq/bin/coqtop.opt.exe
@@ -42,22 +43,26 @@ See also `coq-prog-env' to adjust the environment."
   :group 'coq)
 
 (defcustom coq-dependency-analyzer
-  (proof-locate-executable "coqdep" t '("C:/Program Files/Coq/bin"))
+  (if (executable-find "coqdep") "coqdep"
+    (proof-locate-executable "coqdep" t '("C:/Program Files/Coq/bin")))
   "Command to invoke coqdep."
   :type 'string
   :group 'coq)
 
 (defcustom coq-compiler
-  (proof-locate-executable "coqc" t '("C:/Program Files/Coq/bin"))
+  (if (executable-find "coqc") "coqc"
+    (proof-locate-executable "coqc" t '("C:/Program Files/Coq/bin")))
   "Command to invoke the coq compiler."
   :type 'string
   :group 'coq)
 
 (defun get-coq-library-directory ()
-  (let ((c (substring (shell-command-to-string (concat coq-prog-name " -where")) 0 -1 )))
-    (if (string-match "not found" c)
-        "/usr/local/lib/coq"
-      c)))
+  (let ((default-directory
+	  (if (file-accessible-directory-p default-directory)
+	      default-directory
+	    "/")))
+    (or (ignore-errors (car (process-lines coq-prog-name "-where")))
+	"/usr/local/lib/coq")))
 
 (defconst coq-library-directory (get-coq-library-directory) ;; FIXME Should be refreshed more often
   "The coq library directory, as reported by \"coqtop -where\".")
@@ -120,7 +125,11 @@ Interactively (with INTERACTIVE-P), show that number."
     ;; Use `shell-command' via `find-file-name-handler' instead of
     ;; `process-line': when the buffer is running TRAMP, PG uses
     ;; `start-file-process', loading the binary from the remote server.
-    (let* ((coq-command (shell-quote-argument (or coq-prog-name "coqtop")))
+    (let* ((default-directory
+	     (if (file-accessible-directory-p default-directory)
+		 default-directory
+	       "/"))
+	   (coq-command (shell-quote-argument (or coq-prog-name "coqtop")))
            (shell-command-str (format "%s -v" coq-command))
            (fh (find-file-name-handler default-directory 'shell-command))
            (retv (if fh (funcall fh 'shell-command shell-command-str (current-buffer))
@@ -155,6 +164,18 @@ Returns nil if the version can't be detected."
   (let ((coq-version-to-use (or (coq-version t) "8.5")))
     (condition-case err
 	(coq--version< coq-version-to-use "8.5snapshot")
+      (error
+       (cond
+	((equal (substring (cadr err) 0 15) "Invalid version")
+	 (signal 'coq-unclassifiable-version  coq-version-to-use))
+	(t (signal (car err) (cdr err))))))))
+
+(defun coq--post-v86 ()
+  "Return t if the auto-detected version of Coq is >= 8.6.
+Return nil if the version cannot be detected."
+  (let ((coq-version-to-use (or (coq-version t) "8.5")))
+    (condition-case err
+	(not (coq--version< coq-version-to-use "8.6"))
       (error
        (cond
 	((equal (substring (cadr err) 0 15) "Invalid version")

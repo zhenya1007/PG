@@ -18,9 +18,6 @@
 ## 
 ###########################################################################
 
-# Disable parallel build for now, to workaround the issue raised in PR #112
-.NOTPARALLEL:
-
 # Set this according to your version of Emacs.
 # NB: this is also used to set default install path names below.
 EMACS=$(shell if [ -z "`which emacs`" ]; then echo "Emacs executable not found"; exit 1; else echo emacs; fi)
@@ -39,7 +36,7 @@ DEST_PREFIX=$(DESTDIR)/usr
 PROVERS=acl2 ccc coq hol98 isar lego hol-light phox pgshell pgocaml pghaskell
 OTHER_ELISP=generic lib contrib/mmm
 ELISP_DIRS=${PROVERS} ${OTHER_ELISP}
-ELISP_EXTRAS=isar/interface isar/isartags
+ELISP_EXTRAS=
 EXTRA_DIRS = images
 
 DOC_FILES=AUTHORS BUGS COMPATIBILITY CHANGES COPYING INSTALL README REGISTER doc/*.pdf
@@ -52,6 +49,9 @@ BATCHEMACS=${EMACS} --batch --no-site-file -q
 BASH_SCRIPTS = isar/interface bin/proofgeneral
 PERL_SCRIPTS = lego/legotags coq/coqtags isar/isartags
 # Scripts to edit path to PG
+# the scripts target (part of install) and the cleanscripts target
+# (part of clean) work only under the assumption that PG_SCRIPTS is a subset of
+# the union of BASH_SCRIPTS and PERL_SCRIPTS.
 PG_SCRIPTS = bin/proofgeneral
 
 # Scripts to install to bin directory
@@ -134,7 +134,7 @@ all:	compile
 ##
 ## Remove generated targets
 ##
-clean:	cleanpgscripts
+clean:	cleanscripts
 	rm -f $(ELC) .\#* */.\#* */.autotest.log */.profile.log
 	(cd doc; $(MAKE) clean)
 
@@ -163,14 +163,16 @@ INFODIR=${PREFIX}/share/info
 install: install-desktop install-elisp install-bin install-init
 
 install-desktop:
-	mkdir -p ${DESKTOP}/icons/hicolor/16x16
-	cp etc/desktop/icons/16x16/proofgeneral.png ${DESKTOP}/icons/hicolor/16x16
-	mkdir -p ${DESKTOP}/icons/hicolor/32x32
-	cp etc/desktop/icons/32x32/proofgeneral.png ${DESKTOP}/icons/hicolor/32x32
-	mkdir -p ${DESKTOP}/icons/hicolor/48x48
-	cp etc/desktop/icons/48x48/proofgeneral.png ${DESKTOP}/icons/hicolor/48x48
-	mkdir -p ${DESKTOP}/pixmaps
-	cp etc/desktop/icons/48x48/proofgeneral.png ${DESKTOP}/pixmaps
+	mkdir -p ${DESKTOP}/icons/hicolor/16x16/apps
+	cp etc/desktop/icons/16x16/proofgeneral.png ${DESKTOP}/icons/hicolor/16x16/apps
+	mkdir -p ${DESKTOP}/icons/hicolor/32x32/apps
+	cp etc/desktop/icons/32x32/proofgeneral.png ${DESKTOP}/icons/hicolor/32x32/apps
+	mkdir -p ${DESKTOP}/icons/hicolor/48x48/apps
+	cp etc/desktop/icons/48x48/proofgeneral.png ${DESKTOP}/icons/hicolor/48x48/apps
+	mkdir -p ${DESKTOP}/icons/hicolor/64x64/apps
+	cp etc/desktop/icons/64x64/proofgeneral.png ${DESKTOP}/icons/hicolor/64x64/apps
+	mkdir -p ${DESKTOP}/icons/hicolor/128x128/apps
+	cp etc/desktop/icons/128x128/proofgeneral.png ${DESKTOP}/icons/hicolor/128x128/apps
 	mkdir -p ${DESKTOP}/applications
 	cp etc/desktop/proofgeneral.desktop ${DESKTOP}/applications
 	mkdir -p ${DESKTOP}/mime-info
@@ -233,48 +235,50 @@ doc.%: FORCE
 ##
 ## scripts: try to patch bash and perl scripts with correct paths
 ##
+.PHONY: scripts
 scripts: bashscripts perlscripts pgscripts
 
+.PHONY: bashscripts
 bashscripts:
-	@(bash="`which bash`"; \
+	(bash="`which bash`"; \
 	 if [ -z "$$bash" ]; then \
 	   echo "Could not find bash - bash paths not checked" >&2; \
 	   exit 0; \
 	 fi; \
 	 for i in $(BASH_SCRIPTS); do \
-	   sed "s|^#.*!.*/bin/bash.*$$|#!$$bash|" < $$i > .tmp \
-	   && cat .tmp > $$i; \
-	 done; \
-	 rm -f .tmp)
+	   sed -i.orig "s|^#.*!.*/bin/bash.*$$|#!$$bash|" $$i; \
+	 done)
 
+.PHONY: perlscripts
 perlscripts:
-	@(perl="`which perl`"; \
+	(perl="`which perl`"; \
 	 if [ -z "$$perl" ]; then \
 	   echo "Could not find perl - perl paths not checked" >&2; \
 	   exit 0; \
 	 fi; \
 	 for i in $(PERL_SCRIPTS); do \
-	   sed "s|^#.*!.*/bin/perl.*$$|#!$$perl|" < $$i > .tmp \
-	   && cat .tmp > $$i; \
-	 done; \
-	 rm -f .tmp)
+	   sed -i.orig "s|^#.*!.*/bin/perl.*$$|#!$$perl|" $$i; \
+	 done)
 
 # FIXME: this next edit is really for install case, shouldn't be made
 # just when user types 'make'
-pgscripts:
-	@(for i in $(PG_SCRIPTS); do \
-	   sed "s|PGHOMEDEFAULT=.*$$|PGHOMEDEFAULT=${DEST_ELISP}|" < $$i > .tmp \
-	   && cat .tmp > $$i; \
-	 done; \
-	 rm -f .tmp)
+.PHONY: pgscripts
+pgscripts: bashscripts perlscripts
+	(for i in $(PG_SCRIPTS); do \
+	   sed -i.rm "s|PGHOMEDEFAULT=.*$$|PGHOMEDEFAULT=${DEST_ELISP}|" $$i; \
+	 done)
 
 # Set PGHOME path in scripts back to default location.
-cleanpgscripts:
-	@(for i in $(PG_SCRIPTS); do \
-	   sed "s|PGHOMEDEFAULT=.*$$|PGHOMEDEFAULT=\$$HOME/ProofGeneral|" < $$i > .tmp \
-	   && cat .tmp > $$i; \
-	 done; \
-	 rm -f .tmp)
+.PHONY: cleanscripts
+cleanscripts:
+	(for i in $(PG_SCRIPTS) $(BASH_SCRIPTS) $(PERL_SCRIPTS); do \
+	   if [ -f $$i.rm ] ; then \
+	     rm -f $$i.rm; \
+	   fi; \
+	   if [ -f $$i.orig ] ; then \
+             mv -f $$i.orig $$i; \
+           fi; \
+	 done)
 
 ##
 ## Include developer's makefile if it exists here.
